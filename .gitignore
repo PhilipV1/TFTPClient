@@ -4,6 +4,9 @@
 # Idea folder
 .idea/
 
+# Text files
+write/*.txt
+
 # IML files
 *.iml
 

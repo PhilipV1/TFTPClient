@@ -40,9 +40,8 @@ public class TFTPClient {
             SocketAddress localAddress = new InetSocketAddress(TFTPCLIENT);
             socket.bind(localAddress);
             sendRequest(socket);
-            while (!stop) {
-                testRetransmission(socket);
-            }
+
+            testRetransmission(socket);
             socket.close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -50,7 +49,7 @@ public class TFTPClient {
     }
 
     private void testRetransmission(DatagramSocket socket) {
-        receiveData(socket);
+        boolean result = receiveData(socket);
     }
 
     private void sendRequest(DatagramSocket socket) {
@@ -71,45 +70,59 @@ public class TFTPClient {
         }
 
     }
-    private void receiveData(DatagramSocket socket, String fileName) {
-        short blockID = -1;
+    private boolean receiveData(DatagramSocket socket) {
+        short blockID;
         boolean receiving = true;
-        FileOutputStream fileOutput = createFile();
-        while (receiving) {
-            try {
+        boolean firstPacket = true;
+        try {
+            File file = new File(WRITEDIR + FILENAME);
+            file.createNewFile();
+            FileOutputStream fileOutput = new FileOutputStream(file);
+            while (receiving) {
                 ByteBuffer buffer = ByteBuffer.allocate(BUFFERSIZE);
                 DatagramPacket packet = new DatagramPacket(buffer.array(), buffer.array().length);
                 socket.receive(packet);
+                if (firstPacket) {
+                    socket.connect(packet.getAddress(), packet.getPort());
+                    firstPacket = false;
+                }
                 ByteBuffer received_data = ByteBuffer.wrap(packet.getData());
                 // Stop receiving if the packet is less than 516 bytes
-                receiving = packet.getLength() != BUFFERSIZE;
+                receiving = packet.getLength() == BUFFERSIZE;
                 byte[] data = new byte[packet.getLength()];
                 System.arraycopy(packet.getData(), packet.getOffset(), data, 0, packet.getLength());
+                System.out.println("Received packet on PORT: " + packet.getPort() + " | Address: " + packet.getAddress());
                 System.out.println("Received array length: " + packet.getLength());
-                blockID = received_data.getShort(2);
+                short opcode = received_data.getShort();
+
+                if (opcode == OP_ERR) {
+                    System.out.println("ERROR Received");
+                    fileOutput.close();
+                    return false;
+                }
+                blockID = received_data.getShort();
 
                 // Start reading data after the initial 4 bytes
                 received_data.position(4);
                 ByteBuffer wrapper = ByteBuffer.wrap(data);
 
+                //
+                byte[] fileData = new byte[wrapper.array().length - 4];
+                wrapper.position(4);
+                wrapper.get(fileData, 0, fileData.length);
+                fileOutput.write(fileData);
 
                 // Send the acknowledgement of the received packet
+                Thread.sleep(4000);
                 sendACK(socket, blockID);
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }
-        fileOutput.close();
-    }
-
-    private FileOutputStream createFile() {
-        try {
-            File file = new File(WRITEDIR + FILENAME);
-            file.createNewFile();
-            FileOutputStream tempStream = new FileOutputStream(file);
+            fileOutput.close();
         } catch (IOException e) {
-
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
+        return true;
     }
     private void sendACK(DatagramSocket socket, short blockID) throws IOException {
         ByteBuffer ackBuffer = ByteBuffer.allocate(HEADER);
