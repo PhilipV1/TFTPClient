@@ -91,8 +91,6 @@ public class TFTPClient {
                 receiving = packet.getLength() == BUFFERSIZE;
                 byte[] data = new byte[packet.getLength()];
                 System.arraycopy(packet.getData(), packet.getOffset(), data, 0, packet.getLength());
-                System.out.println("Received packet on PORT: " + packet.getPort() + " | Address: " + packet.getAddress());
-                System.out.println("Received array length: " + packet.getLength());
                 short opcode = received_data.getShort();
 
                 if (opcode == OP_ERR) {
@@ -101,18 +99,20 @@ public class TFTPClient {
                     return false;
                 }
                 if (blockID == received_data.getShort()) {
+                    System.out.println("Received packet length: " + packet.getLength()
+                        + " | Block number: " + received_data.getShort(2));
                     // Start reading data after the initial 4 bytes
                     received_data.position(4);
                     ByteBuffer wrapper = ByteBuffer.wrap(data);
 
-                    //
+                    // Wrap the data we want to write to the file
                     byte[] fileData = new byte[wrapper.array().length - 4];
                     wrapper.position(4);
                     wrapper.get(fileData, 0, fileData.length);
                     fileOutput.write(fileData);
 
                     // Send the acknowledgement of the received packet
-                    Thread.sleep(4000);
+                    Thread.sleep(1500);
                     sendACK(socket, blockID);
                     blockID++;
                 }
