@@ -22,7 +22,7 @@ public class TFTPClient {
     public static final int HEADER = 4;
 
     public static final String MODE = "octet";
-    public static final String FILENAME = "shortfile.txt";
+    public static final String FILENAME = "rfc1350.txt";
 
     public static void main(String[] args) {
         try {
@@ -71,7 +71,7 @@ public class TFTPClient {
 
     }
     private boolean receiveData(DatagramSocket socket) {
-        short blockID;
+        short blockID = 1;
         boolean receiving = true;
         boolean firstPacket = true;
         try {
@@ -100,21 +100,23 @@ public class TFTPClient {
                     fileOutput.close();
                     return false;
                 }
-                blockID = received_data.getShort();
+                if (blockID == received_data.getShort()) {
+                    // Start reading data after the initial 4 bytes
+                    received_data.position(4);
+                    ByteBuffer wrapper = ByteBuffer.wrap(data);
 
-                // Start reading data after the initial 4 bytes
-                received_data.position(4);
-                ByteBuffer wrapper = ByteBuffer.wrap(data);
+                    //
+                    byte[] fileData = new byte[wrapper.array().length - 4];
+                    wrapper.position(4);
+                    wrapper.get(fileData, 0, fileData.length);
+                    fileOutput.write(fileData);
 
-                //
-                byte[] fileData = new byte[wrapper.array().length - 4];
-                wrapper.position(4);
-                wrapper.get(fileData, 0, fileData.length);
-                fileOutput.write(fileData);
+                    // Send the acknowledgement of the received packet
+                    Thread.sleep(4000);
+                    sendACK(socket, blockID);
+                    blockID++;
+                }
 
-                // Send the acknowledgement of the received packet
-                Thread.sleep(4000);
-                sendACK(socket, blockID);
             }
             fileOutput.close();
         } catch (IOException e) {
