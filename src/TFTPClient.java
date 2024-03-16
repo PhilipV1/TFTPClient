@@ -55,7 +55,7 @@ public class TFTPClient {
     private void sendRequest(DatagramSocket socket) {
         try {
             ByteBuffer buffer = ByteBuffer.allocate(BUFFERSIZE);
-            buffer.putShort(OP_RRQ);
+            buffer.putShort((short) 255);
             buffer.put(FILENAME.getBytes(StandardCharsets.UTF_8));
             buffer.put((byte) 0);
             buffer.put(MODE.getBytes(StandardCharsets.UTF_8));
@@ -112,7 +112,6 @@ public class TFTPClient {
                     fileOutput.write(fileData);
 
                     // Send the acknowledgement of the received packet
-                    Thread.sleep(1500);
                     sendACK(socket, blockID);
                     blockID++;
                 }
@@ -121,8 +120,6 @@ public class TFTPClient {
             fileOutput.close();
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
         return true;
     }
@@ -135,14 +132,4 @@ public class TFTPClient {
         socket.send(packet);
     }
 
-    private void writeToFile(StringBuilder data) {
-        try {
-            File file = new File("write/" + FILENAME);
-            FileWriter writer = new FileWriter(file);
-            writer.write(data.toString());
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
